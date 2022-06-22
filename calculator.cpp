@@ -1,10 +1,16 @@
 #include <ctype.h>
+#include <list>
+#include <math.h>
 #include <stack>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-void calculate(char **input);
+void calculate(std::list<char *> input);
+void evaluate(int a, int b, char op);
+char *create_string(int n);
+
+static int total = 0;
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
@@ -15,18 +21,19 @@ int main(int argc, char *argv[]) {
     char *line = argv[1];
     int length = strlen(line);
     char buffer[100];
-    char *input[100];
+    // char *input[100];
     char *curr = buffer;
     char c;
     int strnum = 0;
-    int i;
     std::stack<char> par_check;
+    std::list<char *> input;
+    std::list<char *>::iterator iter;
 
     printf("input: %s\n", line);
     printf("input length: %d\n", length);
 
     while ((c = *line++) != '\0') {
-        input[strnum++] = curr;
+        input.push_back(curr);
 
         if (isdigit(c)) {
             *curr++ = c;
@@ -39,6 +46,10 @@ int main(int argc, char *argv[]) {
             }
             *curr++ = '\0';
         } else {
+            if (c != '*' && c != '/' && c != '+' && c != '-' && c != '(' && c != ')') {
+                printf("Invalid input. Try again.\n");
+                return 1;
+            }
             // check parenthesis matching
             if (c == '(') {
                 par_check.push(c);
@@ -68,8 +79,8 @@ int main(int argc, char *argv[]) {
     }
 
     printf("\nfound:\n");
-    for (i = 0; i < strnum; i++) {
-        printf("%d: %s\n", i, input[i]);
+    for (iter = input.begin(); iter != input.end(); iter++) {
+        printf("%s\n", *iter);
     }
 
     // if parentheses are not matching, then invalid syntax
@@ -80,7 +91,95 @@ int main(int argc, char *argv[]) {
 
     calculate(input);
 
+    printf("\nafter:\n");
+    for (iter = input.begin(); iter != input.end(); iter++) {
+        printf("%s\n", *iter);
+    }
+
     return 0;
 }
 
-void calculate(char **input) {}
+void calculate(std::list<char *> input) {
+    std::list<char *>::iterator iter, prev;
+    int a, b;
+    char c;
+
+    printf("\n");
+    iter = input.begin();
+
+    while (iter != input.end()) {
+        c = (*iter)[0];
+
+        if (!isdigit(c)) {
+            if (c == '*' || c == '/' || c == '+' || c == '-') {
+                a = atoi(*std::prev(iter));
+                b = atoi(*std::next(iter));
+                printf("%d %c %d\n", a, c, b);
+
+                // prev = std::prev(iter)--;
+
+                // iter = prev;
+
+                switch (c) {
+                case '+':
+                    input.insert(iter, create_string(a + b));
+                    break;
+                case '-':
+                    input.insert(iter, create_string(a - b));
+                    break;
+                case '*':
+                    input.insert(iter, create_string(a * b));
+                    break;
+                case '/':
+                    input.insert(iter, create_string(a / b));
+                    break;
+                default:
+                    break;
+                }
+                input.erase(std::prev(iter));
+                input.erase(std::next(iter));
+                input.erase(iter);
+            }
+        }
+
+        iter++;
+    }
+}
+
+void evaluate(int a, int b, char op) {
+    switch (op) {
+    case '+':
+        total += a + b;
+        break;
+    case '-':
+        total += a - b;
+        break;
+    case '*':
+        total += a * b;
+        break;
+    case '/':
+        total += a / b;
+        break;
+    default:
+        break;
+    }
+}
+
+char *create_string(int n) {
+    int digits = floor(log10(abs(n))) + 1;
+    int t = 10;
+    char *ret, *c;
+
+    ret = (char *)malloc(digits + 1);
+    c = ret;
+    t *= digits - 1;
+
+    while (t > 1) {
+        *c++ = (n % t) + '0';
+        t /= 10;
+    }
+
+    *c = '\0';
+
+    return ret;
+}
