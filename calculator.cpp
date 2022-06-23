@@ -1,16 +1,18 @@
+#include <assert.h>
 #include <ctype.h>
-#include <list>
-#include <math.h>
+#include <queue>
 #include <stack>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-void calculate(std::list<char *> input);
-void evaluate(int a, int b, char op);
-char *create_string(int n);
+#define MAX_INPUT 100
+#define ADD 43
+#define SUBTRACT 45
+#define MULTIPLY 42
+#define DIVIDE 47
 
-static int total = 0;
+const char *OPERATORS = "*/-+()";
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
@@ -19,167 +21,110 @@ int main(int argc, char *argv[]) {
     }
 
     char *line = argv[1];
-    int length = strlen(line);
-    char buffer[100];
-    // char *input[100];
+    char buffer[MAX_INPUT];
     char *curr = buffer;
-    char c;
-    int strnum = 0;
-    std::stack<char> par_check;
-    std::list<char *> input;
-    std::list<char *>::iterator iter;
+    char c, *f_c;
+    std::queue<double> tokens;
+    std::stack<char> operators;
+    std::stack<double> output;
+    double a, b;
+    int op;
 
-    printf("input: %s\n", line);
-    printf("input length: %d\n", length);
+    printf("Input: %s\n", line);
 
     while ((c = *line++) != '\0') {
-        input.push_back(curr);
-
         if (isdigit(c)) {
+            f_c = curr;
             *curr++ = c;
-            // print all the digits of a number
-            printf("Digit: %c\n", c);
+
             while (isdigit(*line)) {
                 c = *line++;
-                printf("Digit: %c\n", c);
                 *curr++ = c;
             }
+
             *curr++ = '\0';
+
+            tokens.push(atoi(f_c));
         } else {
-            if (c != '*' && c != '/' && c != '+' && c != '-' && c != '(' && c != ')') {
-                printf("Invalid input. Try again.\n");
+            if (c == '*' || c == '/') {
+                if (!operators.empty() && (operators.top() == '*' || operators.top() == '/')) {
+                    tokens.push(operators.top());
+                    operators.pop();
+                }
+                operators.push(c);
+            }
+
+            else if (c == '+' || c == '-') {
+                if (!operators.empty() && (operators.top() == '+' || operators.top() == '-' ||
+                                           operators.top() == '*' || operators.top() == '/')) {
+                    tokens.push(operators.top());
+                    operators.pop();
+                }
+                operators.push(c);
+            }
+
+            else if (c == '(') {
+                operators.push(c);
+            }
+
+            else if (c == ')') {
+                while (!operators.empty() && operators.top() != '(') {
+                    tokens.push(operators.top());
+                    operators.pop();
+                }
+
+                if (!operators.empty() && operators.top() != '(') {
+                    fprintf(stderr, "Mismatched parenthes\n");
+                    return 1;
+                }
+
+                operators.pop();
+            }
+
+            else {
+                fprintf(stderr, "Invalid character.\n");
                 return 1;
             }
-            // check parenthesis matching
-            if (c == '(') {
-                par_check.push(c);
-                if (*line == ')') { // if like '()3+4'
-                    printf("Invalid input. Try again.\n");
-                    return 1;
-                }
-            }
-            if (c == ')') {
-                if (!par_check.empty()) {
-                    if (!isdigit(*(line - 2))) { // if like '(3+)4'
-                        printf("Invalid input. Try again.\n");
-                        return 1;
-                    }
-                    par_check.pop();
-                } else { // if like ')3+4'
-                    printf("Invalid input. Try again.\n");
-                    return 1;
-                }
-            }
-
-            // print the characters
-            printf("not digit: %c\n", c);
-            *curr++ = c;
-            *curr++ = '\0';
         }
     }
 
-    printf("\nfound:\n");
-    for (iter = input.begin(); iter != input.end(); iter++) {
-        printf("%s\n", *iter);
+    // push the rest of the operators onto the output queue
+    while (!operators.empty()) {
+        tokens.push(operators.top());
+        operators.pop();
     }
 
-    // if parentheses are not matching, then invalid syntax
-    if (!par_check.empty()) {
-        printf("Invalid input. Try again.\n");
-        return 1;
+    // process the tokens
+    while (!tokens.empty()) {
+        output.push(tokens.front());
+        tokens.pop();
+
+        op = output.top();
+        if (op == ADD || op == SUBTRACT || op == MULTIPLY || op == DIVIDE) {
+            output.pop();     // pop the operator
+            b = output.top(); // get the value and pop it from the stack
+            output.pop();
+            a = output.top(); // get the value and pop it from the stack
+            output.pop();
+
+            switch (op) {
+            case ADD:
+                output.push(a + b);
+                break;
+            case SUBTRACT:
+                output.push(a - b);
+                break;
+            case MULTIPLY:
+                output.push(a * b);
+                break;
+            case DIVIDE:
+                output.push(a / b);
+                break;
+            }
+        }
     }
 
-    calculate(input);
-
-    printf("\nafter:\n");
-    for (iter = input.begin(); iter != input.end(); iter++) {
-        printf("%s\n", *iter);
-    }
+    printf("Result: %.2f\n", output.top());
 
     return 0;
-}
-
-void calculate(std::list<char *> input) {
-    std::list<char *>::iterator iter, prev;
-    int a, b;
-    char c;
-
-    printf("\n");
-    iter = input.begin();
-
-    while (iter != input.end()) {
-        c = (*iter)[0];
-
-        if (!isdigit(c)) {
-            if (c == '*' || c == '/' || c == '+' || c == '-') {
-                a = atoi(*std::prev(iter));
-                b = atoi(*std::next(iter));
-                printf("%d %c %d\n", a, c, b);
-
-                // prev = std::prev(iter)--;
-
-                // iter = prev;
-
-                switch (c) {
-                case '+':
-                    input.insert(iter, create_string(a + b));
-                    break;
-                case '-':
-                    input.insert(iter, create_string(a - b));
-                    break;
-                case '*':
-                    input.insert(iter, create_string(a * b));
-                    break;
-                case '/':
-                    input.insert(iter, create_string(a / b));
-                    break;
-                default:
-                    break;
-                }
-                input.erase(std::prev(iter));
-                input.erase(std::next(iter));
-                input.erase(iter);
-            }
-        }
-
-        iter++;
-    }
-}
-
-void evaluate(int a, int b, char op) {
-    switch (op) {
-    case '+':
-        total += a + b;
-        break;
-    case '-':
-        total += a - b;
-        break;
-    case '*':
-        total += a * b;
-        break;
-    case '/':
-        total += a / b;
-        break;
-    default:
-        break;
-    }
-}
-
-char *create_string(int n) {
-    int digits = floor(log10(abs(n))) + 1;
-    int t = 10;
-    char *ret, *c;
-
-    ret = (char *)malloc(digits + 1);
-    c = ret;
-    t *= digits - 1;
-
-    while (t > 1) {
-        *c++ = (n % t) + '0';
-        t /= 10;
-    }
-
-    *c = '\0';
-
-    return ret;
 }
