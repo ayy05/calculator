@@ -32,84 +32,86 @@ int main(int argc, char *argv[]) {
 
     // Get the tokens from the input line.
     while ((c = *line++) != '\0') {
-        // If the character is a digit...
-        if (isdigit(c)) {
-            f_c = curr;
-            *curr++ = c;
-
-            // Read consecutive characters that until a non-digit character is reached.
-            // Reads the characters into the buffer string.
-            while (isdigit(*line)) {
-                c = *line++;
+        if (c != ' ') {
+            // If the character is a digit...
+            if (isdigit(c) || c == '.') {
+                f_c = curr;
                 *curr++ = c;
-            }
 
-            // End the string once all the digits are found.
-            *curr++ = '\0';
-
-            // Use atoi() to conver the string to a number and push it onto the tokens queue.
-            tokens.push(atoi(f_c));
-
-            // Else the character is a non-digit...
-        } else {
-            // If multiply or divide...
-            if (c == '*' || c == '/') {
-                // Check that the operator stack is not empty, then check the top of the stack.
-                // If the top of the stack is an operator with the same precendence (multiply or
-                // divide), push the top of the operator stack onto the tokens queue and remove it
-                // from the stack.
-                if (!operators.empty() && (operators.top() == '*' || operators.top() == '/')) {
-                    tokens.push(operators.top());
-                    operators.pop();
-                }
-                // Push the character onto the operators stack.
-                operators.push(c);
-            }
-
-            // If add or subtract...
-            else if (c == '+' || c == '-') {
-                // Check that the operator stack is not empty, then check the top of the stack.
-                // If the top of the stack is an operator with the same precendence (multiply,
-                // divide, add, subtract), push the top of the operator stack onto the tokens queue
-                // and remove it from the stack.
-                if (!operators.empty() && (operators.top() == '+' || operators.top() == '-' ||
-                                           operators.top() == '*' || operators.top() == '/')) {
-                    tokens.push(operators.top());
-                    operators.pop();
-                }
-                // Push the character onto the operators stack.
-                operators.push(c);
-            }
-
-            // If a left parenthesis...
-            else if (c == '(') {
-                // Push the character onto the operators stack.
-                operators.push(c);
-            }
-
-            // If a right parenthesis...
-            else if (c == ')') {
-                // Push all operators on the operators stack onto the tokens queue until the left
-                // parenthesis is found.
-                while (!operators.empty() && operators.top() != '(') {
-                    tokens.push(operators.top());
-                    operators.pop();
+                // Read consecutive characters that until a non-digit character is reached.
+                // Reads the characters into the buffer string.
+                while (isdigit(*line) || *line == '.') {
+                    c = *line++;
+                    *curr++ = c;
                 }
 
-                // If the left parenthesis was not found, then there are mismatched parentheses.
-                if (!operators.empty() && operators.top() != '(') {
-                    fprintf(stderr, "Mismatched parentheses\n");
+                // End the string once all the digits are found.
+                *curr++ = '\0';
+
+                // Use atoi() to conver the string to a number and push it onto the tokens queue.
+                tokens.push(atof(f_c));
+
+                // Else the character is a non-digit...
+            } else {
+                // If multiply or divide...
+                if (c == '*' || c == '/') {
+                    // Check that the operator stack is not empty, then check the top of the stack.
+                    // If the top of the stack is an operator with the same precendence (multiply or
+                    // divide), push the top of the operator stack onto the tokens queue and remove
+                    // it from the stack.
+                    if (!operators.empty() && (operators.top() == '*' || operators.top() == '/')) {
+                        tokens.push(operators.top());
+                        operators.pop();
+                    }
+                    // Push the character onto the operators stack.
+                    operators.push(c);
+                }
+
+                // If add or subtract...
+                else if (c == '+' || c == '-') {
+                    // Check that the operator stack is not empty, then check the top of the stack.
+                    // If the top of the stack is an operator with the same precendence (multiply,
+                    // divide, add, subtract), push the top of the operator stack onto the tokens
+                    // queue and remove it from the stack.
+                    if (!operators.empty() && (operators.top() == '+' || operators.top() == '-' ||
+                                               operators.top() == '*' || operators.top() == '/')) {
+                        tokens.push(operators.top());
+                        operators.pop();
+                    }
+                    // Push the character onto the operators stack.
+                    operators.push(c);
+                }
+
+                // If a left parenthesis...
+                else if (c == '(') {
+                    // Push the character onto the operators stack.
+                    operators.push(c);
+                }
+
+                // If a right parenthesis...
+                else if (c == ')') {
+                    // Push all operators on the operators stack onto the tokens queue until the
+                    // left parenthesis is found.
+                    while (!operators.empty() && operators.top() != '(') {
+                        tokens.push(operators.top());
+                        operators.pop();
+                    }
+
+                    // If the left parenthesis was not found, then there are mismatched parentheses.
+                    if (!operators.empty() && operators.top() != '(') {
+                        fprintf(stderr, "Mismatched parentheses\n");
+                        return 1;
+                    }
+
+                    // Push the character onto the operators stack.
+                    operators.pop();
+                }
+
+                // Otherwise, was not a valid operator.
+                else {
+                    fprintf(stderr, "Invalid character.\n");
                     return 1;
                 }
-
-                // Push the character onto the operators stack.
-                operators.pop();
-            }
-
-            // Otherwise, was not a valid operator.
-            else {
-                fprintf(stderr, "Invalid character.\n");
-                return 1;
             }
         }
     }
