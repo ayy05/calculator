@@ -1,13 +1,16 @@
 #include <ctype.h>
+#include <deque>
 #include <iostream>
-#include <stack>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
 
 bool do_operation(std::string prev_op, std::string next_op);
 double get_val(double a, double b, std::string op);
-void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators, int num);
+void collapse_back(std::deque<std::string> &tokens, std::deque<std::string> &operators, int num);
+void collapse_front(std::deque<std::string> &tokens, std::deque<std::string> &operators, int num);
+void collapse_back(std::deque<std::string> &tokens, std::deque<std::string> &operators,
+                   std::string op);
 
 int main(int argc, char *argv[]) {
     /* if (argc != 2) {
@@ -15,9 +18,9 @@ int main(int argc, char *argv[]) {
         return 1;
     } */
 
-    std::string line("3+4-(5/6)*(6/5)-5");
-    std::stack<std::string> tokens;
-    std::stack<std::string> operators;
+    std::string line("3+4-(5/6)*(6/5)-5*(5*3-10)");
+    std::deque<std::string> tokens;
+    std::deque<std::string> operators;
     int i = 0;
 
     while (line[i] != '\0') {
@@ -31,16 +34,22 @@ int main(int argc, char *argv[]) {
                         token += line[i++];
                 }
 
-                tokens.push(token);
+                tokens.push_back(token);
             } else {
-                if (!operators.empty() && do_operation(operators.top(), token)) {
-                    collapse(tokens, operators, 1);
+                if (!operators.empty() && do_operation(operators.back(), token)) {
+                    if (token.compare(")") != 0) {
+                        collapse_back(tokens, operators, 1);
+                    } else {
+                        collapse_back(tokens, operators, "(");
+                    }
                 }
 
-                operators.push(token);
-                if (operators.size() >= 2 && operators.top().compare(")") == 0) {
-                    operators.pop();
-                    operators.pop();
+                operators.push_back(token);
+                if (operators.size() >= 2 && operators.back().compare(")") == 0) {
+                    operators.pop_back();
+                    operators.pop_back();
+                    if (operators.back().compare("*") == 0 || operators.back().compare("/") == 0)
+                        collapse_back(tokens, operators, 1);
                 }
                 i++;
             }
@@ -48,10 +57,10 @@ int main(int argc, char *argv[]) {
     }
 
     if (tokens.size() > 2 || operators.size() > 0) {
-        collapse(tokens, operators, operators.size());
+        collapse_front(tokens, operators, operators.size());
     }
 
-    std::cout << "Result: " << tokens.top() << "\n";
+    std::cout << "Result: " << tokens.back() << "\n";
 
     return 0;
 }
@@ -90,13 +99,36 @@ double get_val(double a, double b, std::string op) {
     return 1;
 }
 
-void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators, int num) {
+void collapse_back(std::deque<std::string> &tokens, std::deque<std::string> &operators, int num) {
     while (num--) {
-        double b = atof(tokens.top().c_str());
-        tokens.pop();
-        double a = atof(tokens.top().c_str());
-        tokens.pop();
-        tokens.push(std::to_string(get_val(a, b, operators.top())));
-        operators.pop();
+        double b = atof(tokens.back().c_str());
+        tokens.pop_back();
+        double a = atof(tokens.back().c_str());
+        tokens.pop_back();
+        tokens.push_back(std::to_string(get_val(a, b, operators.back())));
+        operators.pop_back();
+    }
+}
+
+void collapse_back(std::deque<std::string> &tokens, std::deque<std::string> &operators,
+                   std::string op) {
+    while (operators.back().compare(op) != 0) {
+        double b = atof(tokens.back().c_str());
+        tokens.pop_back();
+        double a = atof(tokens.back().c_str());
+        tokens.pop_back();
+        tokens.push_back(std::to_string(get_val(a, b, operators.back())));
+        operators.pop_back();
+    }
+}
+
+void collapse_front(std::deque<std::string> &tokens, std::deque<std::string> &operators, int num) {
+    while (num--) {
+        double a = atof(tokens.front().c_str());
+        tokens.pop_front();
+        double b = atof(tokens.front().c_str());
+        tokens.pop_front();
+        tokens.push_front(std::to_string(get_val(a, b, operators.front())));
+        operators.pop_front();
     }
 }
