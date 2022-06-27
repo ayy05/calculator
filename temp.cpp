@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
         return 1;
     } */
 
-    std::string line("3+4-(5/6)*(6/5)-5*(5*3-10)");
+    std::string line("(((3)+(4 ))-(5 / 6)   *(6 /5)-5*(5*3-1  0))");
     std::deque<std::string> tokens;
     std::deque<std::string> operators;
     int i = 0;
@@ -29,30 +29,36 @@ int main(int argc, char *argv[]) {
 
             if (isdigit(line[i]) || line[i] == '.') {
                 i++;
-                while (isdigit(line[i]) || line[i] == '.') {
+                while (isdigit(line[i]) || line[i] == '.' || line[i] == ' ') {
                     if (line[i] != ' ')
-                        token += line[i++];
+                        token += line[i];
+                    i++;
                 }
 
                 tokens.push_back(token);
             } else {
                 if (!operators.empty() && do_operation(operators.back(), token)) {
-                    if (token.compare(")") != 0) {
-                        collapse_back(tokens, operators, 1);
-                    } else {
-                        collapse_back(tokens, operators, "(");
+                    if (token.compare("(") != 0) {
+                        if (token.compare(")") != 0)
+                            collapse_back(tokens, operators, 1);
+                        else
+                            collapse_back(tokens, operators, "(");
                     }
                 }
 
                 operators.push_back(token);
+                i++;
+
                 if (operators.size() >= 2 && operators.back().compare(")") == 0) {
                     operators.pop_back();
                     operators.pop_back();
-                    if (operators.back().compare("*") == 0 || operators.back().compare("/") == 0)
+                    if (!operators.empty() &&
+                        (operators.back().compare("*") == 0 || operators.back().compare("/") == 0))
                         collapse_back(tokens, operators, 1);
                 }
-                i++;
             }
+        } else {
+            i++;
         }
     }
 
