@@ -14,7 +14,7 @@ double evaluate(double a, double b, std::string op);
 void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators);
 void handle_error(err_code n, int pos);
 
-// Sample input: ((3+4-(5+ 5*3/2*(4-(5 / 6.01  - ))))*(6 /5+2)-5*(5*3-10))
+// Sample input: ((3+4-(5+ 5*3/2*(4-(5 / 6.01   ))))*(6 /5+2)-5*(5*3-10))
 // A simple calculator program that allows addition, subtraction, multiplication, division, and
 // parentheses.
 int main(int argc, char *argv[]) {
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 // Checks that decimal syntax is correct and there is only one or zero decimals in a
-                // number (i.e. no 3.4.5, only 3.45). If not, it's an error.
+                // number (i.e. no '3.4.5' or '3.', only '3.45'). If not, it's an error.
                 if (token.find_first_of(".") != token.find_last_of("."))
                     handle_error(DECIMAL, i);
 
