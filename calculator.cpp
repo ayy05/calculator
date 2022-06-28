@@ -1,34 +1,37 @@
-#include <ctype.h>
+#include <cctype>
+#include <cstdlib>
 #include <iostream>
 #include <stack>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <string>
 
-enum err_code { DECIMAL, OPERATOR, PARENTHESES };
+using namespace std;
 
-bool do_operation(std::string prev_op, std::string next_op);
-double get_val(double a, double b, std::string op);
-void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators);
+enum err_code { DECIMAL, OPERATOR, PARENTHESES, INVALID_ARG };
+const string std_operators = "+-*/";
+const string valid_operators = "+-*/()";
+
 bool is_valid(char l, char r);
+bool do_operation(string prev_op, string next_op);
+double evaluate(double a, double b, string op);
+void collapse(stack<string> &tokens, stack<string> &operators);
 void handle_error(err_code n, int pos);
 
+// sample input: ((3+4-(5+ 5*3/2*(4-(5 / 6.01  - ))))*(6 /5+2)-5*(5*3-10))
 int main(int argc, char *argv[]) {
-    /* if (argc != 2) {
-        printf("Only 1 argument.\n");
-        return 1;
-    } */
+    if (argc != 2) {
+        cerr << "Needs 1 argument.\n";
+        exit(1);
+    }
 
-    std::string line("((3+4-(5+ 5*3/2*(4-(5 / 6.01   ))))*(6 /5+2)-5*(5*3-10))");
-    std::stack<std::string> tokens;
-    std::stack<std::string> operators;
+    string line(argv[1]);
+    stack<string> tokens;
+    stack<string> operators;
     int i = 0;
     int size = line.size();
 
     while (i < size) {
         if (line[i] != ' ') {
-            std::string token(1, line[i]);
+            string token(1, line[i]);
 
             if (isdigit(line[i]) || line[i] == '.') {
                 i++;
@@ -46,20 +49,21 @@ int main(int argc, char *argv[]) {
 
                 tokens.push(token);
             } else {
-                if (strchr("+-*/", line[i]) != NULL) {
+                if (valid_operators.find_first_of(line[i]) == string::npos)
+                    handle_error(INVALID_ARG, i);
+
+                if (std_operators.find_first_of(line[i]) != string::npos) {
                     int l_n = i - 1;
                     int r_n = i + 1;
 
-                    while (l_n > 0 && line[l_n] == ' ') {
+                    while (l_n > 0 && line[l_n] == ' ')
                         l_n--;
-                    }
-                    while (r_n < line.size() && line[r_n] == ' ') {
-                        r_n++;
-                    }
 
-                    if (!is_valid(line[l_n], line[r_n])) {
+                    while (r_n < line.size() && line[r_n] == ' ')
+                        r_n++;
+
+                    if (!is_valid(line[l_n], line[r_n]))
                         handle_error(OPERATOR, i);
-                    }
                 }
 
                 if (!operators.empty() && do_operation(operators.top(), token)) {
@@ -91,7 +95,7 @@ int main(int argc, char *argv[]) {
     if (tokens.size() > 1 || operators.size() > 0)
         handle_error(PARENTHESES, 0);
 
-    std::cout << "Result: " << tokens.top() << "\n";
+    cout << "Result: " << tokens.top() << "\n";
 
     return 0;
 }
@@ -101,60 +105,58 @@ bool is_valid(char l, char r) {
             (isdigit(l) && r == '('));
 }
 
-bool do_operation(std::string prev_op, std::string next_op) {
-    if (next_op.compare(prev_op) == 0) {
+bool do_operation(string prev_op, string next_op) {
+    if (next_op.compare(prev_op) == 0)
         return true;
-    } else {
-        if (next_op.compare("*") == 0 || next_op.compare("/") == 0) {
-            return (prev_op.compare("*") == 0 || prev_op.compare("/") == 0);
-        } else if (next_op.compare("+") == 0 || next_op.compare("-") == 0) {
-            return prev_op.compare("(") != 0 && prev_op.compare(")") != 0;
-        } else if (next_op.compare("(") == 0) {
-            return false;
-        } else {
-            return next_op.compare(")") == 0;
-        }
-    }
+
+    if (next_op.compare("*") == 0 || next_op.compare("/") == 0)
+        return (prev_op.compare("*") == 0 || prev_op.compare("/") == 0);
+
+    if (next_op.compare("+") == 0 || next_op.compare("-") == 0)
+        return prev_op.compare("(") != 0 && prev_op.compare(")") != 0;
+
+    if (next_op.compare("(") == 0)
+        return false;
+
+    return next_op.compare(")") == 0;
 }
 
-double get_val(double a, double b, std::string op) {
-    if (op.compare("+") == 0) {
+double evaluate(double a, double b, string op) {
+    if (op.compare("+") == 0)
         return a + b;
-    }
-    if (op.compare("-") == 0) {
-        return a - b;
-    }
-    if (op.compare("*") == 0) {
-        return a * b;
-    }
-    if (op.compare("/") == 0) {
-        return a / b;
-    }
 
-    fprintf(stderr, "Invalid operator.\n");
-    return 1;
+    if (op.compare("-") == 0)
+        return a - b;
+
+    if (op.compare("*") == 0)
+        return a * b;
+
+    return a / b;
 }
 
-void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators) {
+void collapse(stack<string> &tokens, stack<string> &operators) {
     double b = atof(tokens.top().c_str());
     tokens.pop();
     double a = atof(tokens.top().c_str());
     tokens.pop();
 
-    tokens.push(std::to_string(get_val(a, b, operators.top())));
+    tokens.push(to_string(evaluate(a, b, operators.top())));
     operators.pop();
 }
 
 void handle_error(err_code n, int pos) {
     switch (n) {
     case DECIMAL:
-        fprintf(stderr, "Error, invalid number at character %d.\n", pos);
+        cerr << "Error, invalid number at character " << pos << ".\n";
         break;
     case OPERATOR:
-        fprintf(stderr, "Error, invalid operator syntax at character %d.\n", pos);
+        cerr << "Error, invalid operator syntax at character " << pos << ".\n";
         break;
     case PARENTHESES:
-        fprintf(stderr, "Error, mismatched parentheses.\n");
+        cerr << "Error, mismatched parentheses.\n";
+        break;
+    case INVALID_ARG:
+        cerr << "Error, invalid argument at character " << pos << ".\n";
         break;
     }
 
