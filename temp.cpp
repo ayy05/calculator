@@ -3,13 +3,14 @@
 #include <stack>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <string>
 
 bool do_operation(std::string prev_op, std::string next_op);
 double get_val(double a, double b, std::string op);
-void collapse_back(std::stack<std::string> &tokens, std::stack<std::string> &operators, int num);
-void collapse_back(std::stack<std::string> &tokens, std::stack<std::string> &operators,
-                   std::string op);
+void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators);
+void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators, std::string op);
+bool is_valid(char l, char r);
 
 int main(int argc, char *argv[]) {
     /* if (argc != 2) {
@@ -17,12 +18,13 @@ int main(int argc, char *argv[]) {
         return 1;
     } */
 
-    std::string line("(((3)+(4 ))-(5 / 6)   *(6 /5)-5*(5*3-1  0))");
+    std::string line("((3+4-(5+ 5*3/2*(4-(5 / 6.01))))*(6 /5+2)-5*(5*3-10))");
     std::stack<std::string> tokens;
     std::stack<std::string> operators;
     int i = 0;
+    int size = line.size();
 
-    while (line[i] != '\0') {
+    while (i < size) {
         if (line[i] != ' ') {
             std::string token(1, line[i]);
 
@@ -36,12 +38,29 @@ int main(int argc, char *argv[]) {
 
                 tokens.push(token);
             } else {
+                if (strchr("+-*/", line[i]) != NULL) {
+                    int l_n = i - 1;
+                    int r_n = i + 1;
+
+                    while (l_n > 0 && line[l_n] == ' ') {
+                        l_n--;
+                    }
+                    while (r_n < line.size() && line[r_n] == ' ') {
+                        r_n++;
+                    }
+
+                    if (!is_valid(line[l_n], line[r_n])) {
+                        fprintf(stderr, "Error, invalid statement.\n");
+                        return 1;
+                    }
+                }
+
                 if (!operators.empty() && do_operation(operators.top(), token)) {
                     if (token.compare("(") != 0) {
                         if (token.compare(")") != 0)
-                            collapse_back(tokens, operators, 1);
+                            collapse(tokens, operators);
                         else
-                            collapse_back(tokens, operators, "(");
+                            collapse(tokens, operators, "(");
                     }
                 }
 
@@ -53,7 +72,7 @@ int main(int argc, char *argv[]) {
                     operators.pop();
                     if (!operators.empty() &&
                         (operators.top().compare("*") == 0 || operators.top().compare("/") == 0))
-                        collapse_back(tokens, operators, 1);
+                        collapse(tokens, operators);
                 }
             }
         } else {
@@ -69,6 +88,11 @@ int main(int argc, char *argv[]) {
     std::cout << "Result: " << tokens.top() << "\n";
 
     return 0;
+}
+
+bool is_valid(char l, char r) {
+    return ((isdigit(l) && isdigit(r)) || (l == ')' && r == '(') || (l == ')' && isdigit(r)) ||
+            (isdigit(l) && r == '('));
 }
 
 bool do_operation(std::string prev_op, std::string next_op) {
@@ -105,19 +129,16 @@ double get_val(double a, double b, std::string op) {
     return 1;
 }
 
-void collapse_back(std::stack<std::string> &tokens, std::stack<std::string> &operators, int num) {
-    while (num--) {
-        double b = atof(tokens.top().c_str());
-        tokens.pop();
-        double a = atof(tokens.top().c_str());
-        tokens.pop();
-        tokens.push(std::to_string(get_val(a, b, operators.top())));
-        operators.pop();
-    }
+void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators) {
+    double b = atof(tokens.top().c_str());
+    tokens.pop();
+    double a = atof(tokens.top().c_str());
+    tokens.pop();
+    tokens.push(std::to_string(get_val(a, b, operators.top())));
+    operators.pop();
 }
 
-void collapse_back(std::stack<std::string> &tokens, std::stack<std::string> &operators,
-                   std::string op) {
+void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators, std::string op) {
     while (operators.top().compare(op) != 0) {
         double b = atof(tokens.top().c_str());
         tokens.pop();
