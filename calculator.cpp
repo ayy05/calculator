@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
     int size = line.size();
 
     // Iterates through each character in the input string to divide the string into
-    // tokens
+    // tokens.
     while (i < size) {
         // Skips whitespace between numbers and operators.
         if (line[i] != ' ') {
