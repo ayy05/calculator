@@ -4,108 +4,154 @@
 #include <stack>
 #include <string>
 
-using namespace std;
-
 enum err_code { DECIMAL, OPERATOR, PARENTHESES, INVALID_ARG };
-const string std_operators = "+-*/";
-const string valid_operators = "+-*/()";
+const std::string std_operators = "+-*/";
+const std::string valid_operators = "+-*/()";
 
 bool is_valid(char l, char r);
-bool do_operation(string prev_op, string next_op);
-double evaluate(double a, double b, string op);
-void collapse(stack<string> &tokens, stack<string> &operators);
+bool do_operation(std::string prev_op, std::string next_op);
+double evaluate(double a, double b, std::string op);
+void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators);
 void handle_error(err_code n, int pos);
 
-// sample input: ((3+4-(5+ 5*3/2*(4-(5 / 6.01  - ))))*(6 /5+2)-5*(5*3-10))
+// Sample input: ((3+4-(5+ 5*3/2*(4-(5 / 6.01  - ))))*(6 /5+2)-5*(5*3-10))
+// A simple calculator program that allows addition, subtraction, multiplication, division, and
+// parentheses.
 int main(int argc, char *argv[]) {
+    // Checks that only one argument was given (the expression to be evaluated).
     if (argc != 2) {
-        cerr << "Needs 1 argument.\n";
+        std::cerr << "Needs 1 argument.\n";
         exit(1);
     }
 
-    string line(argv[1]);
-    stack<string> tokens;
-    stack<string> operators;
+    // Declarations
+    std::string line(argv[1]);
+    std::stack<std::string> tokens;
+    std::stack<std::string> operators;
     int i = 0;
     int size = line.size();
 
+    // Iterates through each character in the input string to divide the string into
+    // tokens
     while (i < size) {
+        // Skips whitespace between numbers and operators.
         if (line[i] != ' ') {
-            string token(1, line[i]);
+            // Sets the first character as the start of the new token to be added to the tokens or
+            // operators stack.
+            std::string token(1, line[i]);
 
+            // If the character is a digit, appends the rest of the digits of the number to the
+            // token string and adds the number string to the tokens stack.
             if (isdigit(line[i]) || line[i] == '.') {
-                i++;
+                i++; // Move to the next character in the input.
+
+                // Continues through the string, checking if the next character is a digit or
+                // decimal '.'.
                 while (isdigit(line[i]) || line[i] == '.' || line[i] == ' ') {
+                    // Only adds valid digits, not whitespace to the number token.
                     if (line[i] != ' ') {
-                        token += line[i];
+                        token += line[i]; // Appends the new digit to the number string.
+
+                        // If the digits are separated by whitespace, there is a syntax error.
                         if (i > 0 && line[i - 1] == ' ')
                             handle_error(DECIMAL, i);
                     }
-                    i++;
+
+                    i++; // Move to the next character in the input.
                 }
 
+                // Checks that decimal syntax is correct and there is only one or zero decimals in a
+                // number (i.e. no 3.4.5, only 3.45). If not, it's an error.
                 if (token.find_first_of(".") != token.find_last_of("."))
                     handle_error(DECIMAL, i);
 
+                // Push the newly-made number token to the tokens stack.
                 tokens.push(token);
+
             } else {
-                if (valid_operators.find_first_of(line[i]) == string::npos)
+                // Otherwise, the character should represent an operator.
+                // Current operator = operator being looked at at the time.
+
+                // Checks that the operator is a valid operator: +-*/(). If not, it's an error.
+                if (valid_operators.find_first_of(line[i]) == std::string::npos)
                     handle_error(INVALID_ARG, i);
 
-                if (std_operators.find_first_of(line[i]) != string::npos) {
-                    int l_n = i - 1;
-                    int r_n = i + 1;
+                // Checks that the current operator's syntax is valid.
+                if (std_operators.find_first_of(line[i]) != std::string::npos) {
+                    int l_t = i - 1; // Left token (to the current operator being looked at)
+                    int r_t = i + 1; // Right token (to the current operator being looked at)
 
-                    while (l_n > 0 && line[l_n] == ' ')
-                        l_n--;
+                    // Move the left and right token positions to the first non-whitespace
+                    // character in the input string.
+                    while (l_t > 0 && line[l_t] == ' ')
+                        l_t--;
+                    while (r_t < line.size() && line[r_t] == ' ')
+                        r_t++;
 
-                    while (r_n < line.size() && line[r_n] == ' ')
-                        r_n++;
-
-                    if (!is_valid(line[l_n], line[r_n]))
+                    // Check that the syntax of the current operator relative to what is on the left
+                    // and right is correct. If it's not, it's an error.
+                    if (!is_valid(line[l_t], line[r_t]))
                         handle_error(OPERATOR, i);
                 }
 
+                // Looks at precedence of the current operator, and performs an operation in the
+                // stack if precedence allows, reducing the size of both the tokens and
+                // operator stack.
                 if (!operators.empty() && do_operation(operators.top(), token)) {
+                    // If an open parentheses, we have to wait for more input, so skip.
                     if (token.compare("(") != 0) {
-                        if (token.compare(")") != 0)
-                            collapse(tokens, operators);
-                        else
+                        // Otherwise, if it is a close parentheses, collapse/perform operations in
+                        // the stack until the '(' operator is found. This fully calculates the
+                        // inside of the parentheses.
+                        if (token.compare(")") == 0)
                             while (!operators.empty() && operators.top().compare("(") != 0)
                                 collapse(tokens, operators);
+                        else // Otherwise, only collapse/perform one operation.
+                            collapse(tokens, operators);
                     }
                 }
 
-                operators.push(token);
-                i++;
+                operators.push(token); // Push the current operator onto the operators stack.
+                i++;                   // Move to the next character in the input.
 
+                // If a close parentheses is at the top of the stack, the value of expression
+                // in the parentheses has been calculated so we remove them.
                 if (operators.size() >= 2 && operators.top().compare(")") == 0) {
-                    operators.pop();
-                    operators.pop();
+                    operators.pop(); // Removes ")" from the stack.
+                    operators.pop(); // Removes "(" from the stack.
+
+                    // Checks if there is a multiply or divide operation to perform after/outside
+                    // the parentheses. If so, collapses the stack and perform the operation.
                     if (!operators.empty() &&
                         (operators.top().compare("*") == 0 || operators.top().compare("/") == 0))
                         collapse(tokens, operators);
                 }
             }
         } else {
-            i++;
+            i++; // Moves to the next character in the input if the character was whitespace.
         }
     }
 
+    // If the tokens and operators stack are not at the expected size, there were probably
+    // mismatched parentheses.
     if (tokens.size() > 1 || operators.size() > 0)
         handle_error(PARENTHESES, 0);
 
-    cout << "Result: " << tokens.top() << "\n";
+    // Prints out the result of the calculation.
+    std::cout << "Result: " << tokens.top() << "\n";
 
     return 0;
 }
 
+// Returns true if an std_operator has valid syntax given the tokens to the left and right of it.
 bool is_valid(char l, char r) {
     return ((isdigit(l) && isdigit(r)) || (l == ')' && r == '(') || (l == ')' && isdigit(r)) ||
             (isdigit(l) && r == '('));
 }
 
-bool do_operation(string prev_op, string next_op) {
+// Returns true if an operation can be performed given precedence based on the previous and
+// current/next operators.
+bool do_operation(std::string prev_op, std::string next_op) {
     if (next_op.compare(prev_op) == 0)
         return true;
 
@@ -121,7 +167,9 @@ bool do_operation(string prev_op, string next_op) {
     return next_op.compare(")") == 0;
 }
 
-double evaluate(double a, double b, string op) {
+// Evaluates a given expression given two double numbers a and b, and an operator (+-*/).
+// Returns the value of the expression.
+double evaluate(double a, double b, std::string op) {
     if (op.compare("+") == 0)
         return a + b;
 
@@ -134,29 +182,33 @@ double evaluate(double a, double b, string op) {
     return a / b;
 }
 
-void collapse(stack<string> &tokens, stack<string> &operators) {
+// Collapses the given tokens and operators stack by performing a single operation. Removes the used
+// tokens from the the stack and stores the value of the operation done back into the tokens stack.
+void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators) {
     double b = atof(tokens.top().c_str());
     tokens.pop();
     double a = atof(tokens.top().c_str());
     tokens.pop();
 
-    tokens.push(to_string(evaluate(a, b, operators.top())));
+    tokens.push(std::to_string(evaluate(a, b, operators.top())));
     operators.pop();
 }
 
+// Prints different error messages based on the given error code and exits the program.
+// Some error messages print out the position of the invalid character/syntax from the input string.
 void handle_error(err_code n, int pos) {
     switch (n) {
     case DECIMAL:
-        cerr << "Error, invalid number at character " << pos << ".\n";
+        std::cerr << "Error, invalid number at character " << pos << ".\n";
         break;
     case OPERATOR:
-        cerr << "Error, invalid operator syntax at character " << pos << ".\n";
+        std::cerr << "Error, invalid operator syntax at character " << pos << ".\n";
         break;
     case PARENTHESES:
-        cerr << "Error, mismatched parentheses.\n";
+        std::cerr << "Error, mismatched parentheses.\n";
         break;
     case INVALID_ARG:
-        cerr << "Error, invalid argument at character " << pos << ".\n";
+        std::cerr << "Error, invalid argument at character " << pos << ".\n";
         break;
     }
 
