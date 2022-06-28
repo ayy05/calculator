@@ -1,162 +1,162 @@
-#include <assert.h>
 #include <ctype.h>
-#include <queue>
+#include <iostream>
 #include <stack>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 
-#define MAX_INPUT 100
-#define ADD 43
-#define SUBTRACT 45
-#define MULTIPLY 42
-#define DIVIDE 47
+enum err_code { DECIMAL, OPERATOR, PARENTHESES };
+
+bool do_operation(std::string prev_op, std::string next_op);
+double get_val(double a, double b, std::string op);
+void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators);
+bool is_valid(char l, char r);
+void handle_error(err_code n, int pos);
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
+    /* if (argc != 2) {
         printf("Only 1 argument.\n");
         return 1;
-    }
+    } */
 
-    char *line = argv[1];
-    char buffer[MAX_INPUT];
-    char *curr = buffer;
-    char c, *f_c;
-    std::queue<double> tokens;
-    std::stack<char> operators;
-    std::stack<double> output;
-    double a, b;
-    int op;
+    std::string line("((3+4-(5+ 5*3/2*(4-(5 / 6.01   ))))*(6 /5+2)-5*(5*3-10))");
+    std::stack<std::string> tokens;
+    std::stack<std::string> operators;
+    int i = 0;
+    int size = line.size();
 
-    printf("Input: %s\n", line);
+    while (i < size) {
+        if (line[i] != ' ') {
+            std::string token(1, line[i]);
 
-    // Get the tokens from the input line.
-    while ((c = *line++) != '\0') {
-        if (c != ' ') {
-            // If the character is a digit...
-            if (isdigit(c) || c == '.') {
-                f_c = curr;
-                *curr++ = c;
-
-                // Read consecutive characters that until a non-digit character is reached.
-                // Reads the characters into the buffer string.
-                while (isdigit(*line) || *line == '.') {
-                    c = *line++;
-                    *curr++ = c;
+            if (isdigit(line[i]) || line[i] == '.') {
+                i++;
+                while (isdigit(line[i]) || line[i] == '.' || line[i] == ' ') {
+                    if (line[i] != ' ') {
+                        token += line[i];
+                        if (i > 0 && line[i - 1] == ' ')
+                            handle_error(DECIMAL, i);
+                    }
+                    i++;
                 }
 
-                // End the string once all the digits are found.
-                *curr++ = '\0';
+                if (token.find_first_of(".") != token.find_last_of("."))
+                    handle_error(DECIMAL, i);
 
-                // Use atoi() to conver the string to a number and push it onto the tokens queue.
-                tokens.push(atof(f_c));
-
-                // Else the character is a non-digit...
+                tokens.push(token);
             } else {
-                // If multiply or divide...
-                if (c == '*' || c == '/') {
-                    // Check that the operator stack is not empty, then check the top of the stack.
-                    // If the top of the stack is an operator with the same precendence (multiply or
-                    // divide), push the top of the operator stack onto the tokens queue and remove
-                    // it from the stack.
-                    if (!operators.empty() && (operators.top() == '*' || operators.top() == '/')) {
-                        tokens.push(operators.top());
-                        operators.pop();
+                if (strchr("+-*/", line[i]) != NULL) {
+                    int l_n = i - 1;
+                    int r_n = i + 1;
+
+                    while (l_n > 0 && line[l_n] == ' ') {
+                        l_n--;
                     }
-                    // Push the character onto the operators stack.
-                    operators.push(c);
+                    while (r_n < line.size() && line[r_n] == ' ') {
+                        r_n++;
+                    }
+
+                    if (!is_valid(line[l_n], line[r_n])) {
+                        handle_error(OPERATOR, i);
+                    }
                 }
 
-                // If add or subtract...
-                else if (c == '+' || c == '-') {
-                    // Check that the operator stack is not empty, then check the top of the stack.
-                    // If the top of the stack is an operator with the same precendence (multiply,
-                    // divide, add, subtract), push the top of the operator stack onto the tokens
-                    // queue and remove it from the stack.
-                    if (!operators.empty() && (operators.top() == '+' || operators.top() == '-' ||
-                                               operators.top() == '*' || operators.top() == '/')) {
-                        tokens.push(operators.top());
-                        operators.pop();
+                if (!operators.empty() && do_operation(operators.top(), token)) {
+                    if (token.compare("(") != 0) {
+                        if (token.compare(")") != 0)
+                            collapse(tokens, operators);
+                        else
+                            while (!operators.empty() && operators.top().compare("(") != 0)
+                                collapse(tokens, operators);
                     }
-                    // Push the character onto the operators stack.
-                    operators.push(c);
                 }
 
-                // If a left parenthesis...
-                else if (c == '(') {
-                    // Push the character onto the operators stack.
-                    operators.push(c);
-                }
+                operators.push(token);
+                i++;
 
-                // If a right parenthesis...
-                else if (c == ')') {
-                    // Push all operators on the operators stack onto the tokens queue until the
-                    // left parenthesis is found.
-                    while (!operators.empty() && operators.top() != '(') {
-                        tokens.push(operators.top());
-                        operators.pop();
-                    }
-
-                    // If the left parenthesis was not found, then there are mismatched parentheses.
-                    if (!operators.empty() && operators.top() != '(') {
-                        fprintf(stderr, "Mismatched parentheses\n");
-                        return 1;
-                    }
-
-                    // Push the character onto the operators stack.
+                if (operators.size() >= 2 && operators.top().compare(")") == 0) {
                     operators.pop();
-                }
-
-                // Otherwise, was not a valid operator.
-                else {
-                    fprintf(stderr, "Invalid character.\n");
-                    return 1;
+                    operators.pop();
+                    if (!operators.empty() &&
+                        (operators.top().compare("*") == 0 || operators.top().compare("/") == 0))
+                        collapse(tokens, operators);
                 }
             }
+        } else {
+            i++;
         }
     }
 
-    // Push the remaining operators on the stack onto the token queue.
-    while (!operators.empty()) {
-        tokens.push(operators.top());
-        operators.pop();
-    }
+    if (tokens.size() > 1 || operators.size() > 0)
+        handle_error(PARENTHESES, 0);
 
-    // Process the tokens.
-    while (!tokens.empty()) {
-        // Push the front of the tokens queue onto the output stack and remove it from the queue.
-        output.push(tokens.front());
-        tokens.pop();
-
-        op = output.top();
-        // If the token is an operator...
-        if (op == ADD || op == SUBTRACT || op == MULTIPLY || op == DIVIDE) {
-            output.pop();     // Pop the operator.
-            b = output.top(); // Get the first value and pop it from the stack.
-            output.pop();
-            a = output.top(); // Get the second value and pop it from the stack.
-            output.pop();
-
-            // Push the output of the evaluated expression back onto the output stack.
-            switch (op) {
-            case ADD:
-                output.push(a + b);
-                break;
-            case SUBTRACT:
-                output.push(a - b);
-                break;
-            case MULTIPLY:
-                output.push(a * b);
-                break;
-            case DIVIDE:
-                output.push(a / b);
-                break;
-            }
-        }
-    }
-
-    // Once all the tokens are processed, the top of the output stack will be the final result.
-    printf("Result: %.2f\n", output.top());
+    std::cout << "Result: " << tokens.top() << "\n";
 
     return 0;
+}
+
+bool is_valid(char l, char r) {
+    return ((isdigit(l) && isdigit(r)) || (l == ')' && r == '(') || (l == ')' && isdigit(r)) ||
+            (isdigit(l) && r == '('));
+}
+
+bool do_operation(std::string prev_op, std::string next_op) {
+    if (next_op.compare(prev_op) == 0) {
+        return true;
+    } else {
+        if (next_op.compare("*") == 0 || next_op.compare("/") == 0) {
+            return (prev_op.compare("*") == 0 || prev_op.compare("/") == 0);
+        } else if (next_op.compare("+") == 0 || next_op.compare("-") == 0) {
+            return prev_op.compare("(") != 0 && prev_op.compare(")") != 0;
+        } else if (next_op.compare("(") == 0) {
+            return false;
+        } else {
+            return next_op.compare(")") == 0;
+        }
+    }
+}
+
+double get_val(double a, double b, std::string op) {
+    if (op.compare("+") == 0) {
+        return a + b;
+    }
+    if (op.compare("-") == 0) {
+        return a - b;
+    }
+    if (op.compare("*") == 0) {
+        return a * b;
+    }
+    if (op.compare("/") == 0) {
+        return a / b;
+    }
+
+    fprintf(stderr, "Invalid operator.\n");
+    return 1;
+}
+
+void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators) {
+    double b = atof(tokens.top().c_str());
+    tokens.pop();
+    double a = atof(tokens.top().c_str());
+    tokens.pop();
+
+    tokens.push(std::to_string(get_val(a, b, operators.top())));
+    operators.pop();
+}
+
+void handle_error(err_code n, int pos) {
+    switch (n) {
+    case DECIMAL:
+        fprintf(stderr, "Error, invalid number at character %d.\n", pos);
+        break;
+    case OPERATOR:
+        fprintf(stderr, "Error, invalid operator syntax at character %d.\n", pos);
+        break;
+    case PARENTHESES:
+        fprintf(stderr, "Error, mismatched parentheses.\n");
+        break;
+    }
+
+    exit(1);
 }

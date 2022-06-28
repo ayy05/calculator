@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (tokens.size() > 2 || operators.size() > 0) {
+    if (tokens.size() > 1 || operators.size() > 0) {
         fprintf(stderr, "Error in calculation.\n");
         return 1;
     }
@@ -101,10 +101,10 @@ bool do_operation(std::string prev_op, std::string next_op) {
     } else {
         if (next_op.compare("*") == 0 || next_op.compare("/") == 0) {
             return (prev_op.compare("*") == 0 || prev_op.compare("/") == 0);
-        } else if (next_op.compare("(") == 0) {
-            return false;
         } else if (next_op.compare("+") == 0 || next_op.compare("-") == 0) {
             return prev_op.compare("(") != 0 && prev_op.compare(")") != 0;
+        } else if (next_op.compare("(") == 0) {
+            return false;
         } else {
             return next_op.compare(")") == 0;
         }
@@ -140,11 +140,6 @@ void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operator
 
 void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators, std::string op) {
     while (operators.top().compare(op) != 0) {
-        double b = atof(tokens.top().c_str());
-        tokens.pop();
-        double a = atof(tokens.top().c_str());
-        tokens.pop();
-        tokens.push(std::to_string(get_val(a, b, operators.top())));
-        operators.pop();
+        collapse(tokens, operators);
     }
 }
