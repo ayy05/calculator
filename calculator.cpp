@@ -78,8 +78,8 @@ int main(int argc, char *argv[]) {
 
                 // Checks that the current operator's syntax is valid.
                 if (std_operators.find_first_of(line[i]) != std::string::npos) {
-                    int l_t = i - 1; // Left token (to the current operator being looked at)
-                    int r_t = i + 1; // Right token (to the current operator being looked at)
+                    int l_t = i - 1; // Left token position (to the current operator)
+                    int r_t = i + 1; // Right token position (to the current operator)
 
                     // Move the left and right token positions to the first non-whitespace
                     // character in the input string.
