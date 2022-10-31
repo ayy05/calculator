@@ -65,6 +65,7 @@ int main(int argc, char *argv[]) {
                     i++; // Move to the next character in the input.
                 }
 
+                // Check that this numeric token is within bounds of a double.
                 check_valid_num(token, i);
 
                 // Checks that decimal syntax is correct and there is only one or zero decimals in a
@@ -178,8 +179,10 @@ bool do_operation(std::string prev_op, std::string next_op) {
 }
 
 // Evaluates a given expression given two double numbers a and b, and an operator (+-*/).
+// Checks that the expression is within bounds of a double's size.
 // Returns the value of the expression.
 double evaluate(double a, double b, std::string op) {
+    // Addition
     if (op.compare("+") == 0) {
         if (b > 0 && a >= std::numeric_limits<double>::max() - b)
             handle_error(OVERFLOW, 0);
@@ -189,6 +192,7 @@ double evaluate(double a, double b, std::string op) {
         return a + b;
     }
 
+    // Subtraction
     if (op.compare("-") == 0) {
         if (b < 0 && a >= std::numeric_limits<double>::max() + b)
             handle_error(OVERFLOW, 0);
@@ -198,6 +202,7 @@ double evaluate(double a, double b, std::string op) {
         return a - b;
     }
 
+    // Multiplication
     if (op.compare("*") == 0) {
         if (a == -1 && b == std::numeric_limits<double>::max())
             handle_error(OVERFLOW, 0);
@@ -212,6 +217,7 @@ double evaluate(double a, double b, std::string op) {
         return a * b;
     }
 
+    // Division
     return a / b;
 }
 
@@ -259,6 +265,8 @@ void handle_error(err_code n, int pos) {
     exit(1);
 }
 
+// Checks if a converted string->double is out of range. Causes an error and exits the program if
+// so.
 void check_valid_num(std::string num, int pos) {
     strtod(num.c_str(), NULL);
 
