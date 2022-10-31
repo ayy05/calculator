@@ -1,10 +1,12 @@
 #include <cctype>
+#include <cerrno>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <stack>
 #include <string>
 
-enum err_code { DECIMAL, OPERATOR, PARENTHESES, INVALID_ARG };
+enum err_code { DECIMAL, OPERATOR, PARENTHESES, INVALID_ARG, INVALID_NUM, OVERFLOW, UNDERFLOW };
 const std::string std_operators = "+-*/";
 const std::string valid_operators = "+-*/()";
 
@@ -13,6 +15,7 @@ bool do_operation(std::string prev_op, std::string next_op);
 double evaluate(double a, double b, std::string op);
 void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators);
 void handle_error(err_code n, int pos);
+void check_valid_num(std::string num, int pos);
 
 // Sample input: ((3+4-(5+ 5*3/2*(4-(5 / 6.01   ))))*(6 /5+2)-5*(5*3-10))
 // A simple calculator program that allows addition, subtraction, multiplication, division, and
@@ -24,6 +27,8 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    std::cout << std::numeric_limits<double>::max() << "\n";
+
     // Declarations
     std::string line(argv[1]);
     std::stack<std::string> tokens;
@@ -34,22 +39,22 @@ int main(int argc, char *argv[]) {
     // Iterates through each character in the input string to divide the string into
     // tokens.
     while (i < size) {
-        // Skips whitespace between numbers and operators.
-        if (line[i] != ' ') {
+        // Skips whitespace between numbers and operators. Commas are also treated as whitespace.
+        if (line[i] != ' ' && line[i] != ',') {
             // Sets the first character as the start of the new token to be added to the tokens or
             // operators stack.
             std::string token(1, line[i]);
 
             // If the character is a digit, appends the rest of the digits of the number to the
             // token string and adds the number string to the tokens stack.
-            if (isdigit(line[i]) || line[i] == '.') {
+            if (isdigit(line[i]) || line[i] == '.' || line[i] == ',') {
                 i++; // Move to the next character in the input.
 
                 // Continues through the string, checking if the next character is a digit or
                 // decimal '.'.
-                while (isdigit(line[i]) || line[i] == '.' || line[i] == ' ') {
+                while (isdigit(line[i]) || line[i] == '.' || line[i] == ' ' || line[i] == ',') {
                     // Only adds valid digits, not whitespace to the number token.
-                    if (line[i] != ' ') {
+                    if (line[i] != ' ' && line[i] != ',') {
                         token += line[i]; // Appends the new digit to the number string.
 
                         // If the digits are separated by whitespace, there is a syntax error.
@@ -59,6 +64,8 @@ int main(int argc, char *argv[]) {
 
                     i++; // Move to the next character in the input.
                 }
+
+                check_valid_num(token, i);
 
                 // Checks that decimal syntax is correct and there is only one or zero decimals in a
                 // number (i.e. no '3.4.5' or '3.', only '3.45'). If not, it's an error.
@@ -132,10 +139,13 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    collapse(tokens, operators);
+
     // If the tokens and operators stack are not at the expected size, there were probably
     // mismatched parentheses.
-    if (tokens.size() > 1 || operators.size() > 0)
+    if (tokens.size() > 1 || operators.size() > 0) {
         handle_error(PARENTHESES, 0);
+    }
 
     // Prints out the result of the calculation.
     std::cout << "Result: " << tokens.top() << "\n";
@@ -170,14 +180,37 @@ bool do_operation(std::string prev_op, std::string next_op) {
 // Evaluates a given expression given two double numbers a and b, and an operator (+-*/).
 // Returns the value of the expression.
 double evaluate(double a, double b, std::string op) {
-    if (op.compare("+") == 0)
+    if (op.compare("+") == 0) {
+        if (b > 0 && a >= std::numeric_limits<double>::max() - b)
+            handle_error(OVERFLOW, 0);
+        else if (b < 0 && a <= std::numeric_limits<double>::min() - b)
+            handle_error(UNDERFLOW, 0);
+
         return a + b;
+    }
 
-    if (op.compare("-") == 0)
+    if (op.compare("-") == 0) {
+        if (b < 0 && a >= std::numeric_limits<double>::max() + b)
+            handle_error(OVERFLOW, 0);
+        else if (b > 0 && a <= std::numeric_limits<double>::min() + b)
+            handle_error(UNDERFLOW, 0);
+
         return a - b;
+    }
 
-    if (op.compare("*") == 0)
+    if (op.compare("*") == 0) {
+        if (a == -1 && b == std::numeric_limits<double>::max())
+            handle_error(OVERFLOW, 0);
+        else if (b == -1 && a == std::numeric_limits<double>::min())
+            handle_error(UNDERFLOW, 0);
+
+        if (b != 0 && a > std::numeric_limits<double>::max() / b)
+            handle_error(OVERFLOW, 0);
+        else if (b != 0 && a < std::numeric_limits<double>::min() / b)
+            handle_error(UNDERFLOW, 0);
+
         return a * b;
+    }
 
     return a / b;
 }
@@ -185,13 +218,15 @@ double evaluate(double a, double b, std::string op) {
 // Collapses the given tokens and operators stack by performing a single operation. Removes the used
 // tokens from the the stack and stores the value of the operation done back into the tokens stack.
 void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators) {
-    double b = atof(tokens.top().c_str());
-    tokens.pop();
-    double a = atof(tokens.top().c_str());
-    tokens.pop();
+    if (tokens.size() >= 2 && operators.size() >= 1) {
+        double b = strtod(tokens.top().c_str(), NULL);
+        tokens.pop();
+        double a = strtod(tokens.top().c_str(), NULL);
+        tokens.pop();
 
-    tokens.push(std::to_string(evaluate(a, b, operators.top())));
-    operators.pop();
+        tokens.push(std::to_string(evaluate(a, b, operators.top())));
+        operators.pop();
+    }
 }
 
 // Prints different error messages based on the given error code and exits the program.
@@ -210,7 +245,23 @@ void handle_error(err_code n, int pos) {
     case INVALID_ARG:
         std::cerr << "Error, invalid argument at character " << pos << ".\n";
         break;
+    case INVALID_NUM:
+        std::cerr << "Error, invalid number input at character " << pos << ".\n";
+        break;
+    case OVERFLOW:
+        std::cerr << "Error, double overflow.\n";
+        break;
+    case UNDERFLOW:
+        std::cerr << "Error, double underflow.\n";
+        break;
     }
 
     exit(1);
+}
+
+void check_valid_num(std::string num, int pos) {
+    strtod(num.c_str(), NULL);
+
+    if (errno == ERANGE)
+        handle_error(INVALID_NUM, pos);
 }
