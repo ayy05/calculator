@@ -6,7 +6,7 @@
 #include <stack>
 #include <string>
 
-enum err_code { DECIMAL, OPERATOR, PARENTHESES, INVALID_ARG, INVALID_NUM, OVERFLOW, UNDERFLOW };
+enum err_code { DECIMAL, OPERATOR, PARENTHESES, INVALID_ARG, INVALID_NUM, OVER_UNDER_FLOW };
 const std::string std_operators = "+-*/";
 const std::string valid_operators = "+-*/()";
 
@@ -26,8 +26,6 @@ int main(int argc, char *argv[]) {
         std::cerr << "Needs 1 argument.\n";
         exit(1);
     }
-
-    std::cout << std::numeric_limits<double>::max() << "\n";
 
     // Declarations
     std::string line(argv[1]);
@@ -140,6 +138,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Final collapse in case there is a leftover valid operation.
     collapse(tokens, operators);
 
     // If the tokens and operators stack are not at the expected size, there were probably
@@ -185,9 +184,9 @@ double evaluate(double a, double b, std::string op) {
     // Addition
     if (op.compare("+") == 0) {
         if (b > 0 && a >= std::numeric_limits<double>::max() - b)
-            handle_error(OVERFLOW, 0);
+            handle_error(OVER_UNDER_FLOW, 0);
         else if (b < 0 && a <= std::numeric_limits<double>::min() - b)
-            handle_error(UNDERFLOW, 0);
+            handle_error(OVER_UNDER_FLOW, 0);
 
         return a + b;
     }
@@ -195,9 +194,9 @@ double evaluate(double a, double b, std::string op) {
     // Subtraction
     if (op.compare("-") == 0) {
         if (b < 0 && a >= std::numeric_limits<double>::max() + b)
-            handle_error(OVERFLOW, 0);
+            handle_error(OVER_UNDER_FLOW, 0);
         else if (b > 0 && a <= std::numeric_limits<double>::min() + b)
-            handle_error(UNDERFLOW, 0);
+            handle_error(OVER_UNDER_FLOW, 0);
 
         return a - b;
     }
@@ -205,14 +204,14 @@ double evaluate(double a, double b, std::string op) {
     // Multiplication
     if (op.compare("*") == 0) {
         if (a == -1 && b == std::numeric_limits<double>::max())
-            handle_error(OVERFLOW, 0);
+            handle_error(OVER_UNDER_FLOW, 0);
         else if (b == -1 && a == std::numeric_limits<double>::min())
-            handle_error(UNDERFLOW, 0);
+            handle_error(OVER_UNDER_FLOW, 0);
 
         if (b != 0 && a > std::numeric_limits<double>::max() / b)
-            handle_error(OVERFLOW, 0);
+            handle_error(OVER_UNDER_FLOW, 0);
         else if (b != 0 && a < std::numeric_limits<double>::min() / b)
-            handle_error(UNDERFLOW, 0);
+            handle_error(OVER_UNDER_FLOW, 0);
 
         return a * b;
     }
@@ -224,12 +223,19 @@ double evaluate(double a, double b, std::string op) {
 // Collapses the given tokens and operators stack by performing a single operation. Removes the used
 // tokens from the the stack and stores the value of the operation done back into the tokens stack.
 void collapse(std::stack<std::string> &tokens, std::stack<std::string> &operators) {
+    // Check that there is an operation available to do and enough operands
     if (tokens.size() >= 2 && operators.size() >= 1) {
         double b = strtod(tokens.top().c_str(), NULL);
         tokens.pop();
         double a = strtod(tokens.top().c_str(), NULL);
         tokens.pop();
 
+        // If one of the values was out of range of a double after converting from string to double,
+        // throw an error.
+        if (errno == ERANGE)
+            handle_error(OVER_UNDER_FLOW, 0);
+
+        // Process the operation and add the result to the tokens stack
         tokens.push(std::to_string(evaluate(a, b, operators.top())));
         operators.pop();
     }
@@ -252,21 +258,18 @@ void handle_error(err_code n, int pos) {
         std::cerr << "Error, invalid argument at character " << pos << ".\n";
         break;
     case INVALID_NUM:
-        std::cerr << "Error, invalid number input at character " << pos << ".\n";
+        std::cerr << "Error, invalid number input at character (may be out of range of a double)" << pos << ".\n";
         break;
-    case OVERFLOW:
-        std::cerr << "Error, double overflow.\n";
-        break;
-    case UNDERFLOW:
-        std::cerr << "Error, double underflow.\n";
+    case OVER_UNDER_FLOW:
+        std::cerr << "Error, double value out of range.\n";
         break;
     }
 
     exit(1);
 }
 
-// Checks if a converted string->double is out of range. Causes an error and exits the program if
-// so.
+// Checks if a converted string to double value is out of range.
+// Causes an error and exits the program if so.
 void check_valid_num(std::string num, int pos) {
     strtod(num.c_str(), NULL);
 
